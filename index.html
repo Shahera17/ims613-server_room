@@ -1,0 +1,195 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Server Room Tier III - 3D Tour</title>
+<style>
+:root{--bg:#0b121b;--fg:#e8f1f8;--ac:#35d0ff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif;overflow:hidden}
+canvas{position:fixed;inset:0;touch-action:none}
+#bar{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:10px;display:flex;gap:6px;flex-wrap:wrap}
+button{background:#0b121bcc;color:var(--fg);border:1px solid #ffffff3a;border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}
+button.on{background:var(--ac);color:#04202b;border-color:var(--ac)}
+button:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+select{background:#0b121bcc;color:var(--fg);border:1px solid #ffffff3a;border-radius:8px;padding:7px 8px;font:inherit}
+#panel{position:fixed;left:calc(112px + env(safe-area-inset-left,0px));right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));max-width:620px;background:#04101ae6;border:1px solid #ffffff2a;border-left:3px solid var(--ac);border-radius:10px;padding:10px 14px}
+#ct{font-weight:650;font-size:15px;margin-bottom:2px}#cd{margin:0 0 8px;min-height:2.9em}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+#joy{position:fixed;left:calc(16px + env(safe-area-inset-left,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));width:84px;height:84px;border-radius:50%;background:#ffffff14;border:1px solid #ffffff44;touch-action:none}
+#knob{position:absolute;left:25px;top:25px;width:34px;height:34px;border-radius:50%;background:#35d0ffcc}
+</style></head><body>
+<div id="bar"><button id="b-eye">Eye level</button><button id="b-chase">Chase</button><button id="b-top">Top view</button><button id="b-over">Overview</button><button id="b-lab" class="on">Labels</button><button id="b-ui">Hide UI</button></div>
+<div id="panel"><div id="ct">Server Room Tier III</div><p id="cd">Press Next to start the tour from outside the building. Drag the screen to look around and use the joystick to walk.</p>
+<div class="row"><button id="b-back">Back</button><button id="b-next">Next</button><button id="b-auto">Auto tour</button><button id="b-rs">Restart</button><select id="len" aria-label="Auto tour length"><option value="6">6 min</option><option value="8">8 min</option><option value="10" selected>10 min</option></select></div></div>
+<div id="joy"><div id="knob"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const T=THREE,S=new T.Scene(),C=new T.PerspectiveCamera(65,innerWidth/innerHeight,.1,300);
+const R=new T.WebGLRenderer({antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));R.setSize(innerWidth,innerHeight);document.body.prepend(R.domElement);
+S.background=new T.Color(0xa9cdf0);S.fog=new T.Fog(0xa9cdf0,40,130);
+S.add(new T.HemisphereLight(0xcfe3ff,0x2a3038,.85));const sun=new T.DirectionalLight(0xfff4e0,.8);sun.position.set(-20,40,30);S.add(sun);
+const RY={n:0,s:Math.PI,e:Math.PI/2,w:-Math.PI/2},M={},OB=[],AC=0x35d0ff;
+const mat=(c,o={})=>{const k=c+JSON.stringify(o);return M[k]||(M[k]=new T.MeshStandardMaterial(Object.assign({color:c,roughness:.6,metalness:.2},o)))};
+const bx=(w,h,d,c,x,y,z,o,p)=>{const m=new T.Mesh(new T.BoxGeometry(w,h,d),mat(c,o));m.position.set(x,y,z);(p||S).add(m);return m};
+const cyl=(r,h,c,x,y,z,o,p)=>{const m=new T.Mesh(new T.CylinderGeometry(r,r,h,16),mat(c,o));m.position.set(x,y,z);(p||S).add(m);return m};
+const ob=(x,z,w,d)=>OB.push([x-w/2,x+w/2,z-d/2,z+d/2]);
+const em=c=>({emissive:c});
+function lab(t,w,h,x,y,z,ry,bg,fg,p){const c=document.createElement('canvas');c.width=512;c.height=Math.max(40,Math.round(512*h/w));const k=c.getContext('2d');k.fillStyle=bg;k.fillRect(0,0,512,c.height);k.fillStyle=fg;let s=c.height*.55;k.font='bold '+s+'px sans-serif';while(k.measureText(t).width>480&&s>8){s-=2;k.font='bold '+s+'px sans-serif'}k.textAlign='center';k.textBaseline='middle';k.fillText(t,256,c.height/2);const m=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map:new T.CanvasTexture(c)}));m.position.set(x,y,z);m.rotation.y=ry;(p||S).add(m);return m}
+function ctex(f,rx,ry){const c=document.createElement('canvas');c.width=c.height=64;f(c.getContext('2d'));const t=new T.CanvasTexture(c);t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(rx,ry);t.anisotropy=8;return t}
+const gr=(w,d,c,x,y,z)=>{const m=new T.Mesh(new T.PlaneGeometry(w,d),mat(c,{roughness:.95}));m.rotation.x=-Math.PI/2;m.position.set(x,y,z);S.add(m);return m};
+// ground, floor, walls
+gr(300,300,0x5a8c46,0,-.03,0);gr(4,32,0x4a5058,0,-.01,24);gr(300,7,0x23272c,0,-.01,41);
+gr(20,16,0x7d8895,0,0,0).material=new T.MeshStandardMaterial({roughness:.35,metalness:.15,map:ctex(k=>{k.fillStyle='#6b7684';k.fillRect(0,0,64,64);k.strokeStyle='#9aa6b4';k.lineWidth=3;k.strokeRect(0,0,64,64)},33.3,26.7)});
+const WC=0x232b35;
+bx(20.6,3.9,.3,WC,0,1.95,-8.15);bx(.3,3.9,16.6,WC,-10.15,1.95,0);bx(.3,3.9,16.6,WC,10.15,1.95,0);bx(9,3.9,.3,WC,-5.8,1.95,8.15);bx(9,3.9,.3,WC,5.8,1.95,8.15);bx(2.6,1.3,.3,WC,0,3.25,8.15);
+[[-10.3,10.3,-8.3,-8],[-10.3,-10,-8.3,8.3],[10,10.3,-8.3,8.3],[-10.3,-1.3,8,8.3],[1.3,10.3,8,8.3]].forEach(a=>OB.push(a));
+bx(20,.08,.05,AC,0,.12,8.33,em(AC));bx(20,.05,.02,AC,0,.12,-7.99,em(AC));bx(.02,.05,16,AC,-9.99,.12,0,em(AC));bx(.02,.05,16,AC,9.99,.12,0,em(AC));
+bx(21,.2,.5,0x171d25,0,3.95,8.2);lab('SERVER ROOM  |  TIER III',5.2,.75,0,3.3,8.32,0,'#0a2230','#7fe3ff');
+lab('AUTHORISED PERSONNEL ONLY',3,.3,3.6,2.2,7.98,Math.PI,'#8a1d1d','#fff');
+const D1=bx(1.3,2.5,.06,0x6fc7e8,-.65,1.25,8.15,{transparent:true,opacity:.3,roughness:.1}),D2=bx(1.3,2.5,.06,0x6fc7e8,.65,1.25,8.15,{transparent:true,opacity:.3,roughness:.1});bx(2.7,.1,.2,0x9aa4af,0,2.55,8.15);
+bx(.2,.7,.05,0x111820,1.9,1.25,8.36);bx(.12,.1,.02,0x35e07a,1.9,1.45,8.39,em(0x35e07a));bx(.12,.16,.02,0x333b46,1.9,1.2,8.39);bx(.08,.08,.02,AC,1.9,1.0,8.39,em(AC));lab('ACCESS CONTROL',.9,.2,1.9,1.8,8.4,0,'#0a2230','#7fe3ff');
+// entrance: access control (card, keypad, fingerprint), exit sign, emergency light, alarm, EPO, extinguisher
+bx(.12,.12,.04,0x111820,1.9,1.25,7.97);bx(.07,.07,.02,0x35e07a,1.9,1.25,7.94,em(0x35e07a));lab('EXIT BUTTON',.5,.12,1.9,1.5,7.93,Math.PI,'#0a2230','#7fe3ff');
+bx(.5,.16,.04,0x00a050,0,2.75,7.95,em(0x00a050));lab('EXIT',.46,.12,0,2.75,7.92,Math.PI,'#00a050','#fff');
+bx(.4,.15,.1,0xe8eaee,1.0,2.45,7.93);[.9,1.1].forEach(x=>{const s=new T.Mesh(new T.SphereGeometry(.06,10,10),mat(0xffffff,em(0xffffee)));s.position.set(x,2.55,7.88);S.add(s)});
+bx(.35,.5,.1,0xb3261e,-1.9,1.4,7.95);bx(.2,.1,.02,0x2ee66b,-1.9,1.5,7.9,em(0x2ee66b));bx(.2,.1,.02,0xffb020,-1.9,1.3,7.9,em(0xffb020));lab('FIRE ALARM PANEL',.5,.1,-1.9,1.8,7.92,Math.PI,'#222','#fff');
+bx(.16,.16,.04,0xf2c200,-1.2,1.3,7.97);cyl(.05,.04,0xd00000,-1.2,1.3,7.93,em(0x880000)).rotation.x=Math.PI/2;lab('EPO',.2,.08,-1.2,1.5,7.92,Math.PI,'#222','#fff');
+cyl(.1,.5,0xd02020,3.2,.3,7.8);cyl(.04,.1,0x111111,3.2,.6,7.8);
+// ceiling group
+const CE=new T.Group();S.add(CE);bx(20.6,.1,16.6,0x1c222a,0,3.95,0,{},CE);
+for(let x=-8;x<=8;x+=4)for(let z=-6;z<=6;z+=6)bx(1.2,.04,.6,0xffffff,x,3.88,z,{emissive:0xdfeeff,emissiveIntensity:.9},CE);
+[[-6,-3],[2,-3],[-6,2],[3,2],[8,-2],[0,6]].forEach(([x,z])=>{const l=new T.PointLight(0xdfeeff,.55,15);l.position.set(x,3.4,z);S.add(l)});
+for(const x of [-6,0,6])for(const z of [-5,0,5]){cyl(.12,.05,0xffffff,x,3.87,z,{},CE);const s=new T.Mesh(new T.SphereGeometry(.02,8,8),mat(0xff2020,em(0xff2020)));s.position.set(x,3.84,z);CE.add(s)}
+for(const x of [-8,-4,0,4,8])for(const z of [-5,0,5])cyl(.07,.1,0xe0b030,x,3.8,z,{metalness:.7},CE);
+const RED=0xc0281e;[-5,0,5].forEach(z=>bx(19,.07,.07,RED,0,3.7,z,{},CE));bx(.07,.07,10.4,RED,9.4,3.7,0,{},CE);
+bx(.05,.05,16,0xf0f0f0,-6.5,3.65,0,{},CE);cyl(.025,2.3,0xf0f0f0,-6.5,2.5,7.85);
+[[-9.6,-7.6],[9.6,-7.6],[-9.6,7.6],[9.6,7.6]].forEach(([x,z])=>{bx(.1,.1,.3,0x333a44,x,3.3,z);const s=new T.Mesh(new T.SphereGeometry(.13,12,10),mat(0x1b1f26,{metalness:.6}));s.position.set(x,3.2,z+(z>0?-.2:.2));S.add(s)});
+bx(.4,.5,.15,0xe8eaee,-6.5,1.4,7.92);lab('VESDA',.35,.12,-6.5,1.55,7.84,Math.PI,'#222','#fff');
+// racks
+const mk=u=>{const c=document.createElement('canvas');c.width=128;c.height=512;const x=c.getContext('2d'),t=new T.CanvasTexture(c);t.anisotropy=4;t.d=()=>{x.fillStyle='#0d1116';x.fillRect(0,0,128,512);u.forEach(([y,h])=>{x.fillStyle='#232a33';x.fillRect(6,y,116,h);x.fillStyle='#10151b';for(let i=0;i<9;i++)x.fillRect(48+i*5,y+2,3,h-4);for(let i=0;i<3;i++)if(Math.random()<.55){x.fillStyle=Math.random()<.85?'#35e07a':'#ffb020';x.fillRect(10+i*8,y+h/2-2,4,4)}})};t.d();return t};
+const TX=[0,1,2].map(()=>{const u=[];let y=10;while(y<490){const h=Math.random()<.7?11:22;u.push([y,h]);y+=h+1.5}return mk(u)});
+let kk=0;setInterval(()=>{const t=TX[kk++%3];t.d();t.needsUpdate=true},450);
+const NT=(()=>{const c=document.createElement('canvas');c.width=128;c.height=512;const g=c.getContext('2d');g.fillStyle='#14171c';g.fillRect(0,0,128,512);for(let i=0;i<21;i++){const y=6+i*24,pp=i%3==0;g.fillStyle=pp?'#2b3a52':'#1f242d';g.fillRect(6,y,116,20);for(let k=0;k<24;k++){g.fillStyle=pp?'#0b1220':(k%3?'#2ee66b':'#ffb020');g.fillRect(10+k*4.6,y+(pp?5:7),pp?3.5:3,pp?10:6)}}return new T.CanvasTexture(c)})();
+const lt=t=>{const c=document.createElement('canvas');c.width=64;c.height=32;const g=c.getContext('2d');g.fillStyle='#0c1016';g.fillRect(0,0,64,32);g.fillStyle='#35c8ff';g.font='bold 20px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(t,32,17);return new T.CanvasTexture(c)};
+function rack(x,z,f,tx,id){const g=new T.Group();g.position.set(x,0,z);g.rotation.y=RY[f];S.add(g);bx(.6,2.2,1,0x11151a,0,1.1,0,{},g);
+const p=new T.Mesh(new T.PlaneGeometry(.56,2.1),new T.MeshBasicMaterial({map:tx}));p.position.set(0,1.1,.505);g.add(p);
+bx(.05,2.1,.02,0xcc2222,-.2,1.1,-.51,em(0x661111),g);bx(.05,2.1,.02,0x2255cc,.2,1.1,-.51,em(0x112266),g);
+const s=new T.Sprite(new T.SpriteMaterial({map:lt(id)}));s.scale.set(.32,.16,1);s.position.set(0,2.32,.52);g.add(s)}
+const RW=8.7,ROWS=[[-4.7,'n'],[-1.9,'s'],[.5,'n'],[3.3,'s']];
+ROWS.forEach(([cz,f],r)=>{for(let i=0;i<14;i++)rack((i-6.5)*.62,cz,f,(i<2||i>11)?NT:TX[(i+r)%3],'ABCD'[r]+String(i+1).padStart(2,'0'));ob(0,cz,RW,1);
+bx(RW,.06,.4,0x6b7480,0,2.55,cz);bx(RW,.07,.09,0xd83030,0,2.66,cz-.15,em(0x661111));bx(RW,.07,.09,0x2a5bd7,0,2.66,cz+.15,em(0x112a66));
+for(const x of [-3,-1,1,3])bx(.2,.2,.2,0x7a1a14,x,2.4,cz);bx(RW,.012,.1,0xf2c200,0,.012,cz+(f=='n'?.8:-.8));
+[-4.37,4.37].forEach(x=>bx(.05,.1,.05,0xf4f4f4,x,1.5,cz))});
+// aisles and containment
+const perf=ctex(k=>{k.fillStyle='#17313f';k.fillRect(0,0,64,64);k.fillStyle='#5cc8ff';for(let i=0;i<4;i++)for(let j=0;j<4;j++){k.beginPath();k.arc(8+i*16,8+j*16,3,0,7);k.fill()}},14.5,2);
+const fr=(x,cz,w,c,t,ry)=>{bx(.05,2.3,.05,c,x,1.15,cz-w/2);bx(.05,2.3,.05,c,x,1.15,cz+w/2);bx(.05,.06,w+.05,c,x,2.3,cz);lab(t,1.2,.2,x+(x>0?.03:-.03),2.1,cz,x>0?Math.PI/2:-Math.PI/2,ry,'#fff')};
+[-3.3,1.9].forEach(cz=>{gr(RW,1.2,0x17313f,0,.012,cz).material=new T.MeshStandardMaterial({map:perf,emissive:0x0a3a50,roughness:.4});
+bx(RW,.04,1.8,0x66ccff,0,2.3,cz,{transparent:true,opacity:.22,roughness:.1});bx(RW,.03,.1,AC,0,2.27,cz,em(AC));[4.45,-4.45].forEach(x=>fr(x,cz,1.8,0x9aa4af,'COLD AISLE','#0a2a3a'))});
+[[-.7,1.4],[-6.1,1.8]].forEach(([cz,w])=>{bx(RW,.04,w,0xffa040,0,2.3,cz,{transparent:true,opacity:.2});bx(RW,.03,.08,0xff9a3c,0,2.27,cz,em(0xff7a10));[4.45,-4.45].forEach(x=>fr(x,cz,w,0xff9a3c,'HOT AISLE','#5a2a08'))});
+// equipment
+function eq(x,z,w,d,h,col,txt,f){const g=new T.Group();g.position.set(x,0,z);g.rotation.y=RY[f];S.add(g);const sw=f=='e'||f=='w',lw=sw?d:w,ld=sw?w:d;
+bx(lw,h,ld,col,0,h/2,0,{roughness:.4,metalness:.4},g);lab(txt,lw*.9,.22,0,h+.14,ld/2,0,'#06222c','#7fe3ff',g);bx(lw*.9,.04,.02,AC,0,h*.9,ld/2+.012,em(AC),g);ob(x,z,w,d)}
+[-4.5,-1.5,1.5,4.5].forEach((x,i)=>eq(x,-7.45,1.8,.9,2.1,0xcfd6de,i<3?'CRAC '+(i+1):'CRAC 4 (N+1)','n'));
+bx(11,.015,.03,0x9be22a,0,.014,-6.85,em(0x4a8a10));bx(.1,.1,.1,0xe8eaee,1.5,.06,-6.85);
+eq(-9.4,-2.3,.8,1,1.8,0x8a1f1f,'PDU A','e');eq(-9.4,2.3,.8,1,1.8,0x1f3f8a,'PDU B','e');
+eq(-4.3,7.4,1.2,.6,2,0x39424f,'ATS / MSB','s');eq(9.4,.6,.8,1.2,2,0x3d4d63,'STS','w');
+[-3.2,-2.5].forEach(z=>{cyl(.22,1.6,RED,9.4,.8,z,{roughness:.3});cyl(.05,1.9,RED,9.4,2.6,z)});ob(9.4,-2.85,.6,1.4);lab('GAS CYLINDERS',1.6,.25,9.97,2.2,-2.85,-Math.PI/2,'#7a1010','#fff');
+// separate support buildings (outside the server room)
+bx(7,3.4,.2,0x2a323d,14.5,1.7,-3.9);bx(.2,3.4,4,0x2a323d,11,1.7,-2);bx(.2,3.4,4,0x2a323d,18,1.7,-2);bx(7,.1,4,0x59636f,14.5,.05,-2);bx(7.2,.15,4.2,0x171d25,14.5,3.45,-2);bx(7,3.3,.05,0x6fc7e8,14.5,1.65,-.03,{transparent:true,opacity:.16,roughness:.1});bx(7,.06,.04,AC,14.5,.14,.04,em(AC));lab('UPS & BATTERY ROOM',4.2,.55,14.5,3.0,.04,0,'#0a2230','#7fe3ff');ob(14.5,-2,7,4);
+[['UPS A1',11.9],['UPS A2',13],['UPS B (N+1)',14.1]].forEach(a=>eq(a[1],-3.3,.9,1,1.9,0x3b4a5c,a[0],'n'));[['BATT A',15.2],['BATT B',16.2],['BATT N+1',17.2]].forEach(a=>eq(a[1],-3.3,.9,1,1.6,0x2f4a3b,a[0],'n'));
+eq(15,4.5,4.2,2.2,2.4,0x6b5a2a,'GENERATOR 1','w');eq(15,8,4.2,2.2,2.4,0x6b5a2a,'GENERATOR 2 (N+1)','w');eq(19.4,6.25,1.6,3,1.3,0x44505e,'FUEL TANK','w');
+const fp=(w,d,x,z)=>bx(w,2,d,0x8a939e,x,1,z,{transparent:true,opacity:.28});fp(.03,7.2,12.4,6.4);fp(.03,7.2,20.6,6.4);fp(8.2,.03,16.5,2.8);fp(8.2,.03,16.5,10);lab('GENERATOR YARD',2.4,.3,12.38,2.3,6.4,-Math.PI/2,'#7a1010','#fff');
+// outdoor lamps
+[[-3,13],[3,13],[-3,22],[3,22]].forEach(([x,z],i)=>{cyl(.06,4,0x555c66,x,2,z);const b=new T.Mesh(new T.SphereGeometry(.2,12,10),mat(0xfff2c0,em(0xffe9a0)));b.position.set(x,4.1,z);S.add(b);if(i%2==0){const l=new T.PointLight(0xffe2a0,.8,18);l.position.set(x,4,z);S.add(l)}});
+// avatar
+const AV=new T.Group();S.add(AV);const lm=mat(0x1b1f2a),tm=mat(0x1f8a8a),sm=mat(0xe0b08c);
+const part=(g,m,x,y,z)=>{const q=new T.Mesh(g,m);q.position.set(x,y,z);return q};
+const limb=(w,l,m,x,y)=>{const p=new T.Group();p.position.set(x,y,0);p.add(part(new T.BoxGeometry(w,l,w*1.1),m,0,-l/2,0));AV.add(p);return p};
+const LL=limb(.13,.85,lm,-.09,.85),RL=limb(.13,.85,lm,.09,.85),LA=limb(.09,.56,tm,-.23,1.47),RA=limb(.09,.56,tm,.23,1.47);
+AV.add(part(new T.BoxGeometry(.36,.56,.2),tm,0,1.2,0));AV.add(part(new T.SphereGeometry(.11,16,12),sm,0,1.62,0));
+AV.add(part(new T.SphereGeometry(.118,16,10,0,6.3,0,1.7),mat(0x151515),0,1.63,-.005));AV.add(part(new T.BoxGeometry(.09,.12,.01),mat(0xffffff),.07,1.25,.11));
+// floating labels for every equipment
+const TG=[];const tag=(t,x,y,z)=>{const c=document.createElement('canvas');c.width=256;c.height=64;const g=c.getContext('2d');g.fillStyle='rgba(8,14,22,.88)';g.fillRect(0,0,256,64);g.strokeStyle='#35d0ff';g.lineWidth=3;g.strokeRect(1,1,254,62);g.fillStyle='#fff';let s=30;g.font='600 '+s+'px sans-serif';while(g.measureText(t).width>236&&s>10){s--;g.font='600 '+s+'px sans-serif'}g.textAlign='center';g.textBaseline='middle';g.fillText(t,128,33);const q=new T.Sprite(new T.SpriteMaterial({map:new T.CanvasTexture(c),depthTest:false,transparent:true}));q.scale.set(1.1,.275,1);q.position.set(x,y,z);q.renderOrder=9;S.add(q);TG.push(q)};
+[['Access control',1.9,2.15,8.6],['Exit button',1.9,1.7,7.7],['Automatic door',0,2.9,8.7],['Exit sign',0,3.05,7.7],['Emergency light',1,2.8,7.7],['Fire alarm panel',-1.9,2.1,7.7],['EPO',-1.2,1.75,7.7],['Fire extinguisher',3.2,1.05,7.6],['ATS / MSB',-4.3,2.5,7.2],['VESDA unit',-6.5,1.85,7.7],['VESDA pipe',-6.5,3.4,0],['CCTV',-9.6,2.9,7.4],['CCTV',9.6,2.9,7.4],['CCTV',-9.6,2.9,-7.4],['CCTV',9.6,2.9,-7.4],['Rack row A',0,2.85,-4.7],['Rack row B',0,2.85,-1.9],['Rack row C',0,2.85,.5],['Rack row D',0,2.85,3.3],['Network rack',3.9,2.5,-4.7],['Network rack',-3.9,2.5,-4.7],['Cold aisle 1',0,.5,-3.3],['Cold aisle 2',0,.5,1.9],['Raised floor + perforated tiles',2.5,.35,-3.3],['Cold aisle containment',4.45,2.7,-3.3],['Hot aisle 1',0,2.7,-.7],['Hot aisle 2',0,2.7,-6.1],['Busbar A (red) and B (blue)',0,3.0,-1.9],['Tap-off box',-3,2.65,.5],['Cable tray',3,2.85,3.3],['Temp / humidity sensor',4.37,1.8,-1.9],['CRAC units (N+1)',0,2.5,-7.45],['Leak detection cable',-3,.4,-6.85],['PDU A',-9.4,2.3,-2.3],['PDU B',-9.4,2.3,2.3],['STS',9.4,2.5,.6],['Gas cylinders',9.4,2.2,-2.85],['Gas pipe',9.4,3.45,2],['Gas nozzle',4,3.45,0],['Smoke detector',0,3.55,0]].forEach(a=>tag(...a));
+[['UPS & battery room (separate)',14.5,4,.2],['Generator 1',13,3.2,4.5],['Generator 2 (N+1)',13,3.2,8],['Fuel tank',18.5,2.2,6.25],['Fenced generator yard',12.4,2.9,3.2],['UPS cabinets',13,2.6,-3.3],['Battery cabinets',16.2,2.6,-3.3]].forEach(a=>tag(...a));
+// tour stops: name, stand point, look target, description
+const ST=[
+['Layout overview',null,null,'Top view of the whole layout. The entrance is at the bottom, four rows of racks form two pods, the cooling units are on the back wall, and power, fire protection and cabling surround them. The UPS and battery room and the generators are separate buildings on the right.'],
+['Building exterior',[0,15],[0,3.2,8.3],'A Tier III server room is concurrently maintainable. Any power or cooling part can be serviced without shutting the room down.'],
+['UPS, battery and generator (separate rooms)',[7,14],[14.5,1.8,2],'The UPS, the batteries and the generators are not in the server room. They sit in their own support rooms outside, because of heat, fumes, noise and fire risk. After a power cut the UPS and batteries carry the load first, then the generator takes over. Power enters the server room through the ATS and the PDUs.'],
+['Generator',[11.2,4.5],[12.9,1.4,4.5],'The generator is outdoors in a fenced yard, inside a weatherproof and sound-proof enclosure. It starts by itself after a power cut, once the UPS has bridged the gap. A fuel tank feeds it.'],
+['UPS cabinets',[13,.65],[13,1.2,-3.3],'UPS cabinets give clean, instant power when the supply fails. They sit in their own room, away from the servers.'],
+['Battery cabinets',[16.2,.65],[16.2,1.1,-3.3],'Batteries keep the UPS running until the generator is ready. They need a cool, ventilated room, so they are kept apart from the server room.'],
+
+['Entrance and access control',[1.9,10.6],[1.9,1.25,8.4],'Access control is outside, before the door: a keypad code, a card and a fingerprint. Only authorised staff get in, and every entry is logged. Inside there is only an exit button.'],
+['Fire extinguisher',[3.2,6.7],[3.2,.5,7.9],'Extinguishers by the door let staff put out a small fire before the gas system is needed.'],
+['Exit sign and emergency light',[0,6.2],[0,2.75,7.93],'The exit sign and emergency light stay on during a power cut, so people can leave safely.'],
+['Fire alarm panel',[-1.9,6.7],[-1.9,1.4,7.9],'The fire alarm panel collects smoke detector signals and starts the gas release.'],
+['Emergency power off (EPO)',[-1.2,6.7],[-1.2,1.3,7.9],'The EPO button cuts power to the room in an emergency.'],
+['ATS and main switchboard',[-4.3,6.3],[-4.3,1.3,7.35],'The ATS switches between the main supply and the backup source automatically, so power is never lost.'],
+['VESDA early smoke detection',[-6.5,6.4],[-6.5,1.4,7.9],'VESDA samples the air through a ceiling pipe and warns before a fire grows.'],
+['CCTV',[-7,5.8],[-9.6,3.25,7.4],'Ceiling cameras cover the room and the aisles. Footage is kept for audit.'],
+['Server racks',[5.6,-3.3],[0,1.2,-3.3],'Fifty-six racks in four rows. Each pair of rows faces a cold aisle.'],
+['Cold aisle and raised floor',[3.2,-3.3],[0,0,-3.3],'Cold air rises through perforated tiles in the raised floor into the cold aisle.'],
+['Cold aisle containment',[6.6,-3.3],[4.45,1.8,-3.3],'A roof and end doors keep the cold air inside the aisle so it reaches the servers.'],
+['Network racks and rack labels',[2.8,-3.3],[3.7,1.3,-4.2],'End racks hold patch panels and switches. Labels such as A01 make each rack easy to find.'],
+['Temperature and humidity sensors',[6,-2.6],[4.37,1.5,-1.9],'Sensors at the rack ends warn if temperature or humidity drifts.'],
+['Second aisle',[5.6,1.9],[-2,1.3,1.9],'The second pair of rows has its own cold aisle and power path, so the room can grow.'],
+['PDU',[-7.4,0],[-9.4,1.2,-2.3],'PDUs split power into protected circuits for each rack. Two PDUs give an A and B feed.'],
+['Cooling',[0,-6.1],[0,1.2,-7.45],'Four CRAC units: three run and one stands by, which is N+1.'],
+['Leak detection',[1.5,-6.1],[1.5,0,-6.85],'A leak detection cable on the floor by the cooling units warns of any water.'],
+['Hot aisle',[3.5,-.7],[-3,1.5,-.7],'Hot aisles have a roof and end doors, which keep hot and cold air apart.'],
+['Busbar A and B',[0,-3.3],[0,2.66,-1.9],'Busbar A in red and busbar B in blue feed each rack from separate power paths.'],
+['Cable tray',[0,1.9],[0,2.55,3.3],'Cable trays above the racks keep power and data cables apart and tidy.'],
+['Smoke detector',[0,6],[0,3.87,5],'Ceiling smoke detectors raise the alarm when they sense smoke.'],
+['Gas nozzles',[2.5,6.5],[4,3.8,5],'Ceiling nozzles release the suppression gas when the alarm triggers.'],
+['Gas cylinders',[7.4,-2.85],[9.4,.9,-2.85],'Gas cylinders feed the red pipes. The gas puts out fire without water.'],
+['Static transfer switch (STS)',[7.4,.6],[9.4,1.2,.6],'The STS moves the load between two power sources in milliseconds.']];
+// navigation graph (aisles are narrow, so the avatar follows hub points)
+const HUB=[];[-6.1,-3.3,-.7,1.9,5.6].forEach(z=>[-5.6,5.6].forEach(x=>HUB.push([x,z])));[-6.1,-3.3,-.7,1.9].forEach(z=>HUB.push([0,z]));[[0,5.6],[-3,5.6],[3,5.6],[0,6.8],[0,9.2],[0,15],[0,26],[11.2,1.6],[11.2,6.25],[11.2,10.6]].forEach(a=>HUB.push(a));
+const hit=(x,z)=>OB.some(o=>x>o[0]-.28&&x<o[1]+.28&&z>o[2]-.28&&z<o[3]+.28);
+const vis=(a,b)=>{const l=Math.hypot(b[0]-a[0],b[1]-a[1]);for(let s=0;s<=l;s+=.2){const f=l?s/l:0;if(hit(a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f))return 0}return 1};
+function route(to){const N=HUB.concat(ST.map(s=>s[1]||[0,-.7]),[[P.x,P.z]]),n=N.length,si=n-1,ti=HUB.length+to,d=Array(n).fill(1e9),pr=Array(n).fill(-1),dn=Array(n).fill(0);d[si]=0;
+for(let k=0;k<n;k++){let u=-1;for(let i=0;i<n;i++)if(!dn[i]&&(u<0||d[i]<d[u]))u=i;if(u<0||d[u]>=1e9)break;dn[u]=1;if(u==ti)break;
+for(let v=0;v<n;v++)if(!dn[v]){const l=Math.hypot(N[u][0]-N[v][0],N[u][1]-N[v][1]);if(d[u]+l<d[v]&&vis(N[u],N[v])){d[v]=d[u]+l;pr[v]=u}}}
+const p=[];for(let u=ti;u>=0&&u!=si;u=pr[u])p.unshift(N[u]);return p}
+// state and controls
+const P={x:0,z:26},J={x:0,y:0},K={};let prev='eye',h=Math.PI,pitch=0,mode='eye',dOpen=0,moving=0,cur=-1,path=[],walk=0,face=0,auto=0,arr=0;
+const $=id=>document.getElementById(id);
+function setMode(m){mode=m;AV.visible=m!=='eye';CE.visible=m!=='top'&&m!=='over';['eye','chase','top','over'].forEach(x=>$('b-'+x).classList.toggle('on',x===m))}
+['eye','chase','top','over'].forEach(m=>$('b-'+m).onclick=()=>setMode(m));
+$('b-lab').onclick=e=>{const on=!TG[0].visible;TG.forEach(s=>s.visible=on);e.currentTarget.classList.toggle('on',on)};
+let uiOn=1;const ui=()=>{uiOn=!uiOn;['bar','panel','joy'].forEach(i=>{if(i!=='bar')$(i).style.visibility=uiOn?'':'hidden'});['b-eye','b-chase','b-top','b-over','b-lab'].forEach(i=>$(i).style.visibility=uiOn?'':'hidden');$('b-ui').textContent=uiOn?'Hide UI':'Show UI';$('b-ui').style.opacity=uiOn?1:.35};
+$('b-ui').onclick=ui;
+const info=(a,b)=>{$('ct').textContent=a;$('cd').textContent=b};
+function go(i){if(i<0||i>=ST.length)return;cur=i;arr=0;const s=ST[i];if(!s[1]){if(mode!=='over')prev=mode;setMode('over');walk=0;face=0;info((i+1)+' of '+ST.length+': '+s[0],s[3]);return}if(mode==='over')setMode(prev);path=route(i);walk=1;face=1;info((i+1)+' of '+ST.length+': '+s[0],'Walking to the next point...')}
+function stopAuto(){auto=0;$('b-auto').classList.remove('on');$('b-auto').textContent='Auto tour'}
+function manual(){walk=0;face=0;if(auto)stopAuto()}
+$('b-next').onclick=()=>{stopAuto();go(cur+1)};$('b-back').onclick=()=>{stopAuto();go(cur-1)};
+$('b-auto').onclick=()=>{if(auto)return stopAuto();auto=1;$('b-auto').classList.add('on');$('b-auto').textContent='Stop auto tour';go(Math.max(cur,0))};
+$('b-rs').onclick=()=>{stopAuto();P.x=0;P.z=26;h=Math.PI;pitch=0;cur=-1;walk=0;face=0;dOpen=0;info('Server Room Tier III','Press Next to start the tour from outside the building.')};
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();K[k]=1;if(k==='h')ui();if(k==='n')$('b-next').onclick();if(k==='b')$('b-back').onclick()});addEventListener('keyup',e=>K[e.key.toLowerCase()]=0);
+const jy=$('joy'),kn=$('knob');let jp=null;
+const jm=e=>{const r=jy.getBoundingClientRect();let dx=e.clientX-r.left-42,dy=e.clientY-r.top-42;const l=Math.hypot(dx,dy),m=26;if(l>m){dx*=m/l;dy*=m/l}kn.style.transform=`translate(${dx}px,${dy}px)`;J.x=dx/m;J.y=-dy/m;if(l>4)manual()};
+jy.onpointerdown=e=>{jp=e.pointerId;jy.setPointerCapture(jp);jm(e)};jy.onpointermove=e=>{if(e.pointerId===jp)jm(e)};jy.onpointerup=jy.onpointercancel=()=>{jp=null;J.x=J.y=0;kn.style.transform=''};
+let dr=null;R.domElement.onpointerdown=e=>dr=[e.clientX,e.clientY];addEventListener('pointerup',()=>dr=null);
+addEventListener('pointermove',e=>{if(!dr||e.target!==R.domElement)return;face=0;h-=(e.clientX-dr[0])*.005;pitch=Math.max(-.9,Math.min(.9,pitch-(e.clientY-dr[1])*.004));dr=[e.clientX,e.clientY]});
+const turn=(a,b,k)=>{const d=((b-a+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;return a+d*k};
+setMode('eye');const clk=new T.Clock();
+(function loop(){requestAnimationFrame(loop);const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime;moving=0;
+if(walk){const q=path[0];if(!q){walk=0;info((cur+1)+' of '+ST.length+': '+ST[cur][0],ST[cur][3])}else{const dx=q[0]-P.x,dz=q[1]-P.z,l=Math.hypot(dx,dz),st=4.5*dt;if(l<=st){P.x=q[0];P.z=q[1];path.shift()}else{P.x+=dx/l*st;P.z+=dz/l*st;h=turn(h,Math.atan2(dx,dz),.25);moving=1}}}
+else{
+if(face&&cur>=0&&ST[cur][2]){const s=ST[cur],tx=s[2][0]-P.x,tz=s[2][2]-P.z;h=turn(h,Math.atan2(tx,tz),.15);pitch+=(Math.atan2(s[2][1]-1.62,Math.hypot(tx,tz))-pitch)*.15}
+if(auto&&cur>=0){arr+=dt;if(arr>+$('len').value*60/ST.length-2.5){cur+1<ST.length?go(cur+1):stopAuto()}}
+let jx=J.x+(K.d||K.arrowright?1:0)-(K.a||K.arrowleft?1:0),jv=J.y+(K.w||K.arrowup?1:0)-(K.s||K.arrowdown?1:0);if(K.q)h+=1.6*dt;if(K.e)h-=1.6*dt;
+const l=Math.hypot(jx,jv);if(l>1){jx/=l;jv/=l}
+if(l>.08){manual();moving=1;let dx,dz;if(mode==='top'||mode==='over'){dx=jx;dz=-jv;h=turn(h,Math.atan2(dx,dz),.2)}else{dx=Math.sin(h)*jv-Math.cos(h)*jx;dz=Math.cos(h)*jv+Math.sin(h)*jx}
+P.x+=dx*3.2*dt;P.z+=dz*3.2*dt;
+for(let n=0;n<2;n++){const A=OB.concat(dOpen<.6?[[-1.3,1.3,7.9,8.4]]:[]);for(const o of A){const x0=o[0]-.3,x1=o[1]+.3,z0=o[2]-.3,z1=o[3]+.3;if(P.x>x0&&P.x<x1&&P.z>z0&&P.z<z1){const a=[P.x-x0,x1-P.x,P.z-z0,z1-P.z],m=Math.min(...a);if(m==a[0])P.x=x0;else if(m==a[1])P.x=x1;else if(m==a[2])P.z=z0;else P.z=z1}}}}}
+const dd=Math.hypot(P.x,P.z-8.15);dOpen+=((dd<3.4?1:0)-dOpen)*Math.min(1,dt*5);D1.position.x=-.65-1.2*dOpen;D2.position.x=.65+1.2*dOpen;
+AV.position.set(P.x,0,P.z);AV.rotation.y=h;const sw=moving?Math.sin(t*9)*.6:0;LL.rotation.x=sw;RL.rotation.x=-sw;LA.rotation.x=-sw;RA.rotation.x=sw;
+if(mode==='eye'){C.rotation.order='YXZ';C.position.set(P.x,1.62,P.z);C.rotation.set(pitch,h+Math.PI,0)}
+else if(mode==='chase'){C.position.lerp(new T.Vector3(P.x-Math.sin(h)*2.8,2.1,P.z-Math.cos(h)*2.8),.12);C.lookAt(P.x,1.3,P.z)}
+else if(mode==='over'){const y=Math.max(18,11/(.637*C.aspect),14.1);C.position.lerp(new T.Vector3(0,y,1.5),.15);C.lookAt(0,0,0)}
+else{C.position.lerp(new T.Vector3(P.x,15.5,P.z+2.5),.12);C.lookAt(P.x,0,P.z)}
+R.render(S,C)})();
+addEventListener('resize',()=>{C.aspect=innerWidth/innerHeight;C.updateProjectionMatrix();R.setSize(innerWidth,innerHeight)});
+</script></body></html>
